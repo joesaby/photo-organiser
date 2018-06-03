@@ -14,24 +14,38 @@ def sort_fn(unsorted_list):
                 min_val = inner_value
         sorted_list[min_val_idx] = outer_val
         sorted_list[outer_idx] = min_val
+    return sorted_list
 
-    for tr in sorted_list:
-        print tr
-
-
-def read_files_from_dir(root_dir, trip_key):
+def read_and_sort_files_from_dir(root_dir, trip_key):
     file_date_list = []
     for folder, subs, files in os.walk(root_dir):
-        for file in files:
-            f = open("{}{}".format(root_dir, file), 'rb')
+        for read_file in files:
+            f = open("{}{}".format(root_dir, read_file), 'rb')
             tags = exifread.process_file(f)
-            dT = tags.get("EXIF DateTimeOriginal")
-            if dT is not None:
-                photo_timestamp=datetime.strptime('{}'.format(dT),'%Y:%m:%d %H:%M:%S')
-                file_date_list.append(PhotoFile(file,
+            datetime_original = tags.get("EXIF DateTimeOriginal")
+            if datetime_original is not None:
+                photo_timestamp=datetime.strptime('{}'.format(datetime_original),'%Y:%m:%d %H:%M:%S')
+                file_date_list.append(PhotoFile(read_file,
                                                 photo_timestamp,
                                                 trip_key))
-    sort_fn(file_date_list)
+    return sort_fn(file_date_list)
+
+def reformat_files(sorted_list):
+    count = 1
+    for photo_file in sorted_list:
+        photo_file.set_new_name(count)
+        count += 1
+
+def prepare_linux_script(root_dir, sorted_list):
+    lnx_command_list = []
+    for photo_file in sorted_list:
+        cmd =  "cp {}{} {}{}/{}.jpg".format(root_dir,
+                                           photo_file.get_filename(),
+                                           root_dir,
+                                           photo_file.get_dir_name(),
+                                           photo_file.get_new_filename())
+        lnx_command_list.append(cmd)
+    return lnx_command_list
 
 
 def main(argv):
@@ -41,8 +55,10 @@ def main(argv):
     print argv
     trip_name = argv[0]
     root_dir = argv[1]
-    read_files_from_dir(root_dir, trip_name)
 
+    sorted_list = read_and_sort_files_from_dir(root_dir, trip_name)
+    reformat_files(sorted_list)
+    cmd_list = prepare_linux_script(root_dir, sorted_list)
 
 
 if __name__ == "__main__":
